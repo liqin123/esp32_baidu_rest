@@ -21,22 +21,85 @@
 #include "esp_event_loop.h"
 #include "esp_log.h"
 #include <sys/socket.h>
-
+#include "nvs.h"
+#include "nvs_flash.h"
 #include "eth.h"
 #include "event.h"
 #include "wifi.h"
 #include "hal_i2c.h"
 #include "hal_i2s.h"
 #include "wm8978.h"
-#include "nvs.h"
-#include "nvs_flash.h"
+#include "baidu_rest.h"
+#include "http.h"
+#include "cJSON.h"
+
 
 #define GPIO_OUTPUT_IO_0    16
 #define GPIO_OUTPUT_PIN_SEL  ((1<<GPIO_OUTPUT_IO_0))
 
 #define TAG "main:"
+// typedef int (*http_data_cb) (http_parser*, const char *at, size_t length);
+// typedef int (*http_cb) (http_parser*);
 
 
+//char* http_body;
+uint32_t http_body_length=0;
+char* http_body=NULL;
+static int body_callback(http_parser* a, const char *at, size_t length){
+    http_body=realloc(http_body,http_body_length+length);
+    memcpy(http_body+http_body_length,at,length);
+    http_body_length+=length;
+    // cJSON *root;
+    // root= cJSON_Parse(http_body);
+    // char* err_msg;
+    // err_msg=cJSON_GetObjectItem(root,"err_msg")->valuestring;
+    // ESP_LOGI(TAG,"err_msg:%s",err_msg);
+    // char* sn;
+    // err_msg=cJSON_GetObjectItem(root,"sn")->valuestring;
+    // ESP_LOGI(TAG,"sn:%s",err_msg);
+    // int err_no;
+    // err_no=cJSON_GetObjectItem(root,"err_no")->valueint;
+    // ESP_LOGI(TAG,"err_msg:%d",err_no);
+    // cJSON_Delete(root);
+    //printf("recv data:%s\n", http_body);
+    //ESP_LOGI(TAG,"received body:%s",http_body);
+    return 0;
+}
+int body_done_callback (http_parser* a){
+    http_body=realloc(http_body,http_body_length+1);
+    http_body[http_body_length]='\0';
+    // ESP_LOGI(TAG,"return code:%d",a->status_code);
+    // ESP_LOGI(TAG,"request method:%d",a->method);
+    // ESP_LOGI(TAG,"data:%s",http_body);
+    cJSON *root;
+    root= cJSON_Parse(http_body);
+    char* err_msg;
+    err_msg=cJSON_GetObjectItem(root,"err_msg")->valuestring;
+    ESP_LOGI(TAG,"err_msg:%s",err_msg);
+    char* sn;
+    err_msg=cJSON_GetObjectItem(root,"sn")->valuestring;
+    ESP_LOGI(TAG,"sn:%s",err_msg);
+    int err_no;
+    err_no=cJSON_GetObjectItem(root,"err_no")->valueint;
+    ESP_LOGI(TAG,"err_msg:%d",err_no);
+    cJSON_Delete(root);
+    ESP_LOGI(TAG,"received body:%s",http_body);
+    free(http_body);
+    return 0;
+}
+
+static http_parser_settings settings_null =
+{   .on_message_begin = 0
+    ,.on_header_field = 0
+    ,.on_header_value = 0
+    ,.on_url = 0
+    ,.on_status = 0
+    ,.on_body = body_callback
+    ,.on_headers_complete = 0
+    ,.on_message_complete = body_done_callback
+    ,.on_chunk_header = 0
+    ,.on_chunk_complete = 0
+};
 
 void app_main()
 {
@@ -95,15 +158,17 @@ void app_main()
     //xEventGroupWaitBits(eth_event_group,ETH_GOTIP_BIT,pdTRUE,pdTRUE,portMAX_DELAY);
     //esp_err_t tcpip_adapter_get_ip_printf(tcpip_adapter_if_t tcpip_if, tcpip_adapter_ip_printf_t *ip_printf);
     //gpio_set_level(GPIO_OUTPUT_IO_0, 1);
-    //tcpip_adapter_ip_info_t ip;
-    // memset(&ip, 0, sizeof(tcpip_adapter_ip_info_t));
-    // if (tcpip_adapter_get_ip_info(ESP_IF_WIFI_STA, &ip) == 0) {
-    //     ESP_LOGI(TAG, "~~~~~~~~~~~");
-    //     ESP_LOGI(TAG, "ETHIP:"IPSTR, IP2STR(&ip.ip));
-    //     ESP_LOGI(TAG, "ETHPMASK:"IPSTR, IP2STR(&ip.netmask));
-    //     ESP_LOGI(TAG, "ETHPGW:"IPSTR, IP2STR(&ip.gw));
-    //     ESP_LOGI(TAG, "~~~~~~~~~~~");
-    // }
+    tcpip_adapter_ip_info_t ip;
+    memset(&ip, 0, sizeof(tcpip_adapter_ip_info_t));
+    if (tcpip_adapter_get_ip_info(ESP_IF_WIFI_STA, &ip) == 0) {
+        ESP_LOGI(TAG, "~~~~~~~~~~~");
+        ESP_LOGI(TAG, "ETHIP:"IPSTR, IP2STR(&ip.ip));
+        ESP_LOGI(TAG, "ETHPMASK:"IPSTR, IP2STR(&ip.netmask));
+        ESP_LOGI(TAG, "ETHPGW:"IPSTR, IP2STR(&ip.gw));
+        ESP_LOGI(TAG, "~~~~~~~~~~~");
+    }
+
+    xTaskCreate(baidu_rest_task, "asr_task", 4096, NULL, 5, NULL);
         //xEventGroupWaitBits(eth_event_group,ETH_DISCONNECTED_BIT,pdTRUE,pdTRUE,portMAX_DELAY);
     //}while(1);
     //if(create_tcp_server(8080)!=ESP_OK){
@@ -114,12 +179,15 @@ void app_main()
     //char databuff[100]={0};
     //int len=0;
     //xTaskCreatePinnedToCore
-    char samples_data[256];
+    char samples_data[64];
     //memset(samples_data,0,1024);
+    http_client_get("http://vop.baidu.com/server_api",&settings_null,NULL);
     uint8_t cnt=0;
     while(1){
-        gpio_set_level(GPIO_OUTPUT_IO_0, cnt%2);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        //gpio_set_level(GPIO_OUTPUT_IO_0, cnt%2);
+        //memset(samples_data,0,1024);
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        //ESP_LOGI(TAG, "%s/n",samples_data);
         //aplay("/sdcard/test.wav");
         //hal_i2s_read(0,samples_data,256,portMAX_DELAY);
         //hal_i2s_write(0,samples_data,256,0);
