@@ -35,25 +35,7 @@
 //Copyright(C) ???????ӿƼ?????˾ 2014-2024
 //All rights reserved									  
 ////////////////////////////////////////////////////////////////////////////////// 	
-typedef struct 
-{
-    char rld[4];    //riff 标志符号
-    int  rLen;      //
-    char wld[4];    //格式类型（wave）
-    char fld[4];    //"fmt"
- 
-    int fLen;   //sizeof(wave format matex)
- 
-    short wFormatTag;   //编码格式
-    short wChannels;    //声道数
-    int   nSamplesPersec;  //采样频率
-    int   nAvgBitsPerSample;//WAVE文件采样大小
-    short wBlockAlign; //块对齐
-    short wBitsPerSample;   //WAVE文件采样大小
 
-    char dld[4];        //”data“
-    int  wSampleLength; //音频数据的大小
- }WAV_HEADER;
 
 //WM8978?Ĵ??ֵ?????(???58???Ĵ??,0~57),ռ?116???ڴ?
 //?ΪWM8978??IC?????֧?ֶ????,??????ر??????Ĵ??ֵ
@@ -74,22 +56,27 @@ static uint16_t WM8978_REGVAL_TBL[58]=
 static void wm8979_interface()
 {
 
+	//WM8978_REGVAL_TBL[WM8978_AUDIO_INTERFACE]|=bit0;//mono left phase
 	WM8978_REGVAL_TBL[WM8978_AUDIO_INTERFACE] &=~(bit6|bit5);//16bit
 	//WM8978_REGVAL_TBL[WM8978_AUDIO_INTERFACE]|=(bit6|bit5);//32bit
 	WM8978_Write_Reg(WM8978_AUDIO_INTERFACE,WM8978_REGVAL_TBL[WM8978_AUDIO_INTERFACE]);
 	WM8978_REGVAL_TBL[WM8978_CLOCKING]|=bit0; //the codec ic is master mode 
-	WM8978_REGVAL_TBL[WM8978_CLOCKING]|=bit3|bit2;// 256/32=8
-	WM8978_REGVAL_TBL[WM8978_CLOCKING]&=~(bit7|bit6|bit5); //mclk=mclk
-	WM8978_REGVAL_TBL[WM8978_CLOCKING]|=bit7;
+	WM8978_REGVAL_TBL[WM8978_CLOCKING]|=bit3|bit2;// 100 256/16=16; 16 bit
+	WM8978_REGVAL_TBL[WM8978_CLOCKING]&=~(bit7|bit6|bit5); 
+	WM8978_REGVAL_TBL[WM8978_CLOCKING]|=(bit7|bit5|bit6);// 101 48/6=8
+	WM8978_REGVAL_TBL[WM8978_CLOCKING]|=bit8;
 	WM8978_Write_Reg(WM8978_CLOCKING,WM8978_REGVAL_TBL[WM8978_CLOCKING]);
 	//WM8978_REGVAL_TBL[WM8978_CLOCKING]&=~bit8;//mclk is the clk source
 }
 static void wm8979_pll(uint32_t k,uint8_t n)
-
 {
+	WM8978_REGVAL_TBL[WM8978_ADDITIONAL_CONTROL]&=~(bit3|bit2|bit1);
+	WM8978_REGVAL_TBL[WM8978_ADDITIONAL_CONTROL]|=(bit3|bit1);
+	WM8978_Write_Reg(WM8978_ADDITIONAL_CONTROL,WM8978_REGVAL_TBL[WM8978_ADDITIONAL_CONTROL]);//sr 8K
+
 	WM8978_REGVAL_TBL[WM8978_POWER_MANAGEMENT_1]|=bit5;//enable pll
 	WM8978_Write_Reg(WM8978_POWER_MANAGEMENT_1,WM8978_REGVAL_TBL[WM8978_POWER_MANAGEMENT_1]);
-	//WM8978_REGVAL_TBL[WM8978_PLL_N]|=bit4;//mclk/2 =20m
+	WM8978_REGVAL_TBL[WM8978_PLL_N]|=bit4;//prescale enable /2
 	WM8978_REGVAL_TBL[WM8978_PLL_N]&=0x1f0;
 	WM8978_REGVAL_TBL[WM8978_PLL_N]|=n;//7
 	WM8978_Write_Reg(WM8978_PLL_N,WM8978_REGVAL_TBL[WM8978_PLL_N]);
@@ -114,7 +101,7 @@ static void wm8979_loopback()
 uint8_t WM8978_Init(void)
 {
 	//??Ϊͨ???
-	wm8979_pll(0x86c227,0x07);
+	wm8979_pll(0X3126E9,0x08);
 	wm8979_interface();
 	WM8978_Write_Reg(1,0X3B);	//R1,MICEN??Ϊ1(MICʹ?),BIASEN??Ϊ1(ģ?????),VMIDSEL[1:0]??Ϊ:11(5K)
 	WM8978_Write_Reg(2,0X1B0);	//R2,ROUT1,LOUT1???ʹ?(??????Թ??),BOOSTENR,BOOSTENLʹ?

@@ -13,8 +13,8 @@
 #include "event.h"
 
 
-#define EXAMPLE_DEFAULT_SSID "Transee21_TP1"
-#define EXAMPLE_DEFAULT_PWD "02197545"
+#define EXAMPLE_DEFAULT_SSID "Frankie"
+#define EXAMPLE_DEFAULT_PWD "yp6sfnff"
 
 #define EXAMPLE_MAX_STA_CONN 1 
 

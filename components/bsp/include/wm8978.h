@@ -3,22 +3,22 @@
 
 #include "hal_i2c.h"									
 //////////////////////////////////////////////////////////////////////////////////	 
-//±¾³ÌĞòÖ»¹©Ñ§Ï°Ê¹ÓÃ£¬Î´¾­×÷ÕßĞí¿É£¬²»µÃÓÃÓÚÆäËüÈÎºÎÓÃÍ¾
-//ALIENTEK STM32F407¿ª·¢°å
-//WM8978 Çı¶¯´úÂë	   
-//ÕıµãÔ­×Ó@ALIENTEK
-//¼¼ÊõÂÛÌ³:www.openedv.com
-//´´½¨ÈÕÆÚ:2014/5/24
-//°æ±¾£ºV1.0
-//°æÈ¨ËùÓĞ£¬µÁ°æ±Ø¾¿¡£
-//Copyright(C) ¹ãÖİÊĞĞÇÒíµç×Ó¿Æ¼¼ÓĞÏŞ¹«Ë¾ 2014-2024
+//Â±Â¾Â³ÃŒÃÃ²Ã–Â»Â¹Â©Ã‘Â§ÃÂ°ÃŠÂ¹Ã“ÃƒÂ£Â¬ÃÂ´Â¾Â­Ã—Ã·Ã•ÃŸÃÃ­Â¿Ã‰Â£Â¬Â²Â»ÂµÃƒÃ“ÃƒÃ“ÃšÃ†Ã¤Ã‹Ã¼ÃˆÃÂºÃÃ“ÃƒÃÂ¾
+//ALIENTEK STM32F407Â¿ÂªÂ·Â¢Â°Ã¥
+//WM8978 Ã‡Ã½Â¶Â¯Â´ÃºÃ‚Ã«	   
+//Ã•Ã½ÂµÃ£Ã”Â­Ã—Ã“@ALIENTEK
+//Â¼Â¼ÃŠÃµÃ‚Ã›ÃŒÂ³:www.openedv.com
+//Â´Â´Â½Â¨ÃˆÃ•Ã†Ãš:2014/5/24
+//Â°Ã¦Â±Â¾Â£ÂºV1.0
+//Â°Ã¦ÃˆÂ¨Ã‹Ã¹Ã“ÃÂ£Â¬ÂµÃÂ°Ã¦Â±Ã˜Â¾Â¿Â¡Â£
+//Copyright(C) Â¹Ã£Ã–ÃÃŠÃÃÃ‡Ã’Ã­ÂµÃ§Ã—Ã“Â¿Ã†Â¼Â¼Ã“ÃÃÃÂ¹Â«Ã‹Â¾ 2014-2024
 //All rights reserved									  
 ////////////////////////////////////////////////////////////////////////////////// 	
  
  
-//Èç¹ûAD0½Å(4½Å)½ÓµØ,IICµØÖ·Îª0X4A(²»°üº¬×îµÍÎ»).
-//Èç¹û½ÓV3.3,ÔòIICµØÖ·Îª0X4B(²»°üº¬×îµÍÎ»).
-#define WM8978_ADDR				0X1A	//WM8978µÄÆ÷¼şµØÖ·,¹Ì¶¨Îª0X1A 
+//ÃˆÃ§Â¹Ã»AD0Â½Ã…(4Â½Ã…)Â½Ã“ÂµÃ˜,IICÂµÃ˜Ã–Â·ÃÂª0X4A(Â²Â»Â°Ã¼ÂºÂ¬Ã—Ã®ÂµÃÃÂ»).
+//ÃˆÃ§Â¹Ã»Â½Ã“V3.3,Ã”Ã²IICÂµÃ˜Ã–Â·ÃÂª0X4B(Â²Â»Â°Ã¼ÂºÂ¬Ã—Ã®ÂµÃÃÂ»).
+#define WM8978_ADDR				0X1A	//WM8978ÂµÃ„Ã†Ã·Â¼Ã¾ÂµÃ˜Ã–Â·,Â¹ÃŒÂ¶Â¨ÃÂª0X1A 
  
 #define EQ1_80Hz		0X00
 #define EQ1_105Hz		0X01
@@ -149,6 +149,28 @@
 #define WM8978_OUT3_MIXER_CONTROL		0x38
 
 #define WM8978_OUT4_MIXER_CONTROL		0x39
+
+typedef struct 
+{
+    char rld[4];    //riff æ ‡å¿—ç¬¦å·
+    int  rLen;      //
+    char wld[4];    //æ ¼å¼ç±»å‹ï¼ˆwaveï¼‰
+    char fld[4];    //"fmt"
+ 
+    int fLen;   //sizeof(wave format matex)
+ 
+    short wFormatTag;   //ç¼–ç æ ¼å¼
+    short wChannels;    //å£°é“æ•°
+    int   nSamplesPersec;  //é‡‡æ ·é¢‘ç‡
+    int   nAvgBitsPerSample;//WAVEæ–‡ä»¶é‡‡æ ·å¤§å°
+    short wBlockAlign; //å—å¯¹é½
+    short wBitsPerSample;   //WAVEæ–‡ä»¶é‡‡æ ·å¤§å°
+
+    char dld[4];        //â€dataâ€œ
+    int  wSampleLength; //éŸ³é¢‘æ•°æ®çš„å¤§å°
+ }WAV_HEADER;
+
+ 
 uint8_t WM8978_Init(void); 
 void WM8978_ADDA_Cfg(uint8_t dacen,uint8_t adcen);
 void WM8978_Input_Cfg(uint8_t micen,uint8_t lineinen,uint8_t auxen);
